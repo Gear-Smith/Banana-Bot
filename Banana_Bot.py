@@ -77,4 +77,4 @@ async def on_ready():
 
 
     
-bot.run('NDY2MDkzMjYzMDE1NjQxMDg4.Dy-uIg.tuHBdX6-hbk2uUmg1Mde8dfHSmg', bot=True, reconnect=True)
+bot.run('Get_Token_From_Discord', bot=True, reconnect=True)
