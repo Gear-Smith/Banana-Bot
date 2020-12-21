@@ -7,8 +7,22 @@ class OwnerCog(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        
+                
     
+    @commands.command(name='loaded?', hidden=True)
+    async def ext_loaded(self, ctx):
+        """Returns a list of loaded cogs.
+        """
+        loaded_cogs = []
+        
+        try:
+            for key in self.bot.cogs: loaded_cogs.append(key)
+        except Exception as e:
+            await ctx.send(f'**`ERROR:`** {type(e).__name__} - {e}')
+        else:
+            await ctx.send(f'''**`The following cogs are loaded: 
+                {loaded_cogs}`**''')
+
     # Hidden means it won't show up on the default help.
     @commands.command(name='load', hidden=True)
 #   @commands.is_owner()
@@ -32,7 +46,7 @@ class OwnerCog(commands.Cog):
         Remember to use dot path. e.g: cogs.owner"""
 
         try:
-            await self.bot.unload_extension(cog)
+            self.bot.unload_extension(cog)
         except Exception as e:
             await ctx.send(f'**`ERROR:`** {type(e).__name__} - {e}')
         else:
