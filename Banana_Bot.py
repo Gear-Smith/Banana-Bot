@@ -63,17 +63,23 @@ async def on_ready():
     if not hasattr(bot, 'appinfo'):
         bot.AppInfo = await bot.application_info()
     
-    print(f'\n\nLogged in as: {bot.user.name} - {bot.user.id}\nOwner: {bot.AppInfo.owner}\n')
-    print(f'---------\n SERVERS\n---------')
-   
-    for s in bot.guilds: print(s)
     print(f'\nDiscord.py: v{discord.__version__}\n')
     print(f'Python: v{platform.python_version()}\n')
     
+    
+    print(f'\nLogged in as: {bot.user.name} - {bot.user.id}\nOwner: {bot.AppInfo.owner}\n')
+    
+    print(f'\n---------\n SERVERS\n---------')
+    for s in bot.guilds: print(s)
+        
     # Changes our bots Playing Status. type=1(streaming) for a standard game you could remove type and url.
     game = discord.Game("Bananas")
     await bot.change_presence(activity=game)  
-    print(f'Successfully logged in and booted...!')
+
+    print(f'\n-------------\n Cogs Loaded\n-------------')
+    for key in bot.cogs: print(key)
+
+    print(f'\nSuccessfully logged in and booted...!')
 
 
     
