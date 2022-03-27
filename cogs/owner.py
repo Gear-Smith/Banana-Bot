@@ -1,14 +1,15 @@
 import discord
 from discord.ext import commands
 
+description = """Stuff goes here"""
 
 class OwnerCog(commands.Cog):
-    """ OwnerCog """
+    """OwnerCog"""
 
     def __init__(self, bot):
         self.bot = bot
-                
-    
+
+
     @commands.command(name='loaded?', hidden=True)
     async def ext_loaded(self, ctx):
         """Returns a list of loaded cogs.
@@ -23,6 +24,8 @@ class OwnerCog(commands.Cog):
             await ctx.send(f'''**`The following cogs are loaded: 
                 {loaded_cogs}`**''')
 
+    # Hidden means it won't show up on the default help.        
+    
     # Hidden means it won't show up on the default help.
     @commands.command(name='load', hidden=True)
 #   @commands.is_owner()
@@ -46,7 +49,7 @@ class OwnerCog(commands.Cog):
         Remember to use dot path. e.g: cogs.owner"""
 
         try:
-            self.bot.unload_extension(cog)
+            await self.bot.unload_extension(cog)
         except Exception as e:
             await ctx.send(f'**`ERROR:`** {type(e).__name__} - {e}')
         else:
