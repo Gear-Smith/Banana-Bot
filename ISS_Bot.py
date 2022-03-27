@@ -1,27 +1,37 @@
+import configparser
+from platform import python_version
+from tracemalloc import start
+from xml.etree.ElementTree import VERSION
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
+import platform
+import twitchAPI
 import asyncio
 import random
 import os
-import platform
 
 import sys, traceback
 
+from utilities import configs
+
+cfg = configs()
+my_token = cfg.get_bot_token()
+
+
 description = '''
-    This is a multi file example showcasing many features of the command extension and the use of cogs.
+    This is the start of the International Stream Station Bot, 80-HD.
+
+    This bot will assist mods in channel management and will be updated as the need arrises for more funcionality.
     
-    These are examples only and are not intended to be used as a fully functioning bot. Rather they should give you a basic
-    understanding and platform for creating your own bot.
-    
-    These examples make use of Python 3.6.8 and the latest 1.5.0 version on the Discord.py lib.
+    This bot uses the following libraries:
+        Python v3.9.1 : Discord.py v1.7.3 : TwitchAPI v2.5.3
     
     For examples on cogs for the async version:
         https://gist.github.com/leovoel/46cd89ed6a8f41fd09c5
     
-    v1.5.0 Documentation:
-        https://discordpy.readthedocs.io/en/v1.5.0/api.html
+    v1.7.3 Documentation:https://discordpy.readthedocs.io/en/stable/index.html#
 
-    Familiarising yourself with the documentation will greatly help you in creating your bot and using cogs. '''
+    Familiarising yourself with the documentation will greatly help with understanding this bot's capabilities. '''
 
 def get_prefix(bot, message):
     """A callable Prefix for our bot. This could be edited to allow per server prefixes."""
@@ -39,18 +49,15 @@ def get_prefix(bot, message):
 # Below cogs represents our folder our cogs are in. Following is the file name. So 'meme.py' in cogs, would be cogs.meme
 # Think of it like a dot path import
 initial_extensions = ['cogs.owner',
-                      'cogs.members',
-                      'cogs.simple',
-                      'cogs.audio']
+                      'cogs.wolf']
 
 bot = commands.Bot(command_prefix=get_prefix, description=description)
-
 # Here we load our extensions(cogs) listed above in [initial_extensions].
 if __name__ == '__main__':
     for extension in initial_extensions:
         try:
-            #bot.add_cog(extension)
             bot.load_extension(extension)
+            print(f'loaded {extension}')
         except Exception as e:
             print(f'Failed to load extension {extension}.', file=sys.stderr)
             traceback.print_exc()
@@ -63,24 +70,17 @@ async def on_ready():
     if not hasattr(bot, 'appinfo'):
         bot.AppInfo = await bot.application_info()
     
-    print(f'\nDiscord.py: v{discord.__version__}\n')
-    print(f'Python: v{platform.python_version()}\n')
-    
-    
-    print(f'\nLogged in as: {bot.user.name} - {bot.user.id}\nOwner: {bot.AppInfo.owner}\n')
-    
-    print(f'\n---------\n SERVERS\n---------')
+    print(f'\n\nLogged in as: {bot.user.name} - {bot.user.id}\nOwner: {bot.AppInfo.owner}\n')
+    print(f'---------\n SERVERS\n---------')
+   
     for s in bot.guilds: print(s)
-        
-    # Changes our bots Playing Status. type=1(streaming) for a standard game you could remove type and url.
-    game = discord.Game("Bananas")
-    await bot.change_presence(activity=game)  
-
-    print(f'\n-------------\n Cogs Loaded\n-------------')
-    for key in bot.cogs: print(key)
-
-    print(f'\nSuccessfully logged in and booted...!')
-
-
+    print(f'\nDiscord Version: v{discord.__version__}\n'
+    f'TwitchAPI Version: v{twitchAPI.VERSION}\n'
+    f'Python Version: v{platform.python_version()}\n')
     
-bot.run('Get_Token_From_Discord', bot=True, reconnect=True)
+    # Changes our bots Playing Status. type=1(streaming) for a standard game you could remove type and url.
+    game = discord.Game("All the Side Quests")
+    await bot.change_presence(activity=game)  
+    print(f'Successfully logged in and booted...!')
+
+bot.run(my_token, bot=True, reconnect=True)
