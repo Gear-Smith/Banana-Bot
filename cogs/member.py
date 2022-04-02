@@ -1,8 +1,9 @@
-from ast import Constant, If
+import ast
 from asyncio import exceptions, tasks
 from logging import exception
 from pickle import TRUE
 from tabnanny import check
+from tkinter import HIDDEN
 from aiohttp import streamer
 import requests
 import discord
@@ -31,10 +32,11 @@ class TwitchState():
         }
         self.LIVE = True
         self.OFFLINE = False
-        self.LIVE_CHANNEL_ID = [NUMERIC CHANNEL ID]
+        self.LIVE_CHANNEL_ID = [YOUR DISCORD LIVE CHANNEL ID]
+        #int(self.cfg.get_live_channel_id())
         
-        self.streamer_list = {}
-        
+        self.streamer_list =  self.cfg.get_streamer_list()
+                
     
     def streamer_factory(self, usr, discord_name, data):
         """Creates a streamer object to be stored."""
@@ -47,6 +49,8 @@ class TwitchState():
         
         else: return False
 
+    def get_live_channel_id(self):
+        return self.LIVE_CHANNEL_ID
     
     def get_client_id(self):
         return self.CLIENT_ID
@@ -76,64 +80,98 @@ class TwitchState():
         return data[0]['type'] == 'live'
 
 
-class WolfCog(commands.Cog):
-    """WoflCog"""
+class MemberCog(commands.Cog):
+    """MemberCog"""
 
     def __init__(self, bot):
         self.bot = bot
-        self.twolf = TwitchState()
+        self.tState = TwitchState()
         self.delete_offline_streamers.start()
+        self.LIVE_CHANNEL_ID = [YOUR DISCORD LIVE CHANNEL ID]
+
+    @commands.command(name='showlist', hidden=True)
+    async def show_list(self, ctx):
+        pprint(self.tState.streamer_list)
 
     @commands.command(pass_context=True, name='repeat', aliases=['copy', 'mimic'])
     async def do_repeat(self, ctx, our_input: str):
         """A simple command which repeats our input."""
         
         await ctx.send(our_input)
-            
+
+    @commands.command(pass_context=True, name='registered', hidden=False)
+    async def is_registered(self, ctx):
+        """Checks to see streamer is registered with the bot."""
+        
+        if ctx.author.name in self.tState.streamer_list:
+            await ctx.send(f'{ctx.author} is registered as `{self.tState.streamer_list[ctx.author.name]["twitch_display_name"]}`')
+            return True
+        else: 
+            await ctx.send(f'Registration unknown or missing')
+            return False   
+
+
     @tasks.loop(seconds=1800, reconnect=True)
     async def delete_offline_streamers(self):
-    
-        messages = await self.twolf.LIVE_CHANNEL_ID.history(limit=200).flatten()
+        
+        Live_channel = self.bot.get_channel(self.tState.get_live_channel_id())
 
-        for usr in self.twolf.streamer_list:
-            display_name = self.twolf.streamer_list[usr]['twitch_display_name']
-            print(f'Checking status for {display_name}')
-                                
-            for m in messages:
+        messages = await Live_channel.history(limit=200).flatten()
+                        
+        for usr in self.tState.streamer_list:
+            display_name = self.tState.streamer_list[usr]['twitch_display_name']
+            print(f'Checking status for {display_name}')                                                
+            
+            if self.tState.is_user_live(display_name):
+                print(f'{display_name} is still live.')
+                
+            elif not self.tState.is_user_live(display_name):    
+                for m in messages:
 
-                def is_streamer(m):
-                    return m.content == f'https://twitch.tv/{display_name}'
+                    def is_streamer(m):
+                        if m.content == f'https://twitch.tv/{display_name}':
+                            print(f'Deleting message for {usr}')
+                            return True
+                        else: return False
+                
+                    def is_user(m):
+                        if m.author.id == self.tState.streamer_list[usr]['id']:
+                            print(f'Deleting message for {usr}')
+                            return True
+                        else: return False
+                    
+                    await Live_channel.purge(limit=200, check=is_streamer)
+                    await Live_channel.purge(limit=200, check=is_user)
 
-                if not self.twolf.is_user_live(display_name): 
-                    print(f'Deleting message for {display_name}')              
-                    await self.twolf.LIVE_CHANNEL_ID.purge(limit=200, check=is_streamer)
-                else: print(f'{display_name} is still live.')    
+            
 
     @delete_offline_streamers.before_loop
     async def before_printer(self):
         print('LOADING...')
         await self.bot.wait_until_ready()
 
-    @commands.command(pass_context=TRUE, name='live', aliases= ['golive', 'streaming'])
+    @commands.command(pass_context=TRUE, name='live', hidden= False, aliases= ['golive', 'streaming'])
     async def post_going_live(self, ctx):
+        """Bot will post your `twitch link` to the `going-live` channel."""
+
+        Live_channel = self.bot.get_channel(self.tState.get_live_channel_id())
+        if ctx.author.name in self.tState.streamer_list.keys():
     
-        if ctx.author.name in self.twolf.streamer_list.keys():
-    
-            display_name = self.twolf.streamer_list[ctx.author.name]['twitch_display_name']
+            display_name = self.tState.streamer_list[ctx.author.name]['twitch_display_name']
             live_state = await self.islive(ctx, display_name)
     
             if live_state:
-                await self.twolf.LIVE_CHANNEL_ID.send(f'https://twitch.tv/{display_name}')
+                await Live_channel.send(f'https://twitch.tv/{display_name}')
 
 
-    @commands.command(pass_context=True, name='islive')
+    @commands.command(pass_context=True, name='islive', hidden=False)
     async def islive(self, ctx, user):
         """Check to see if a Twitch user is live."""
         
         print(f'Checking if {user} is live....')
         
         try:
-            result = self.twolf.is_user_live(user)
+            result = self.tState.is_user_live(user)
             if result: 
                 await ctx.send(f'**`{user} is live!!`**')
                 pprint(f'{user} is Live!!!')
@@ -149,21 +187,21 @@ class WolfCog(commands.Cog):
         else:
             pass
 
-    @commands.command(pass_context=True, name='register')
+    @commands.command(pass_context=True, name='register', hidden=False)
     async def register_streamer(self, ctx, usr):
         """Add a streamer's data to the list."""
         
         disc_user = await self.bot.fetch_user(ctx.author.id)
-        self.twolf.streamer_list[disc_user.name] = {'id': disc_user.id, 
+        self.tState.streamer_list[disc_user.name] = {'id': disc_user.id, 
                                                     'name': disc_user.name, 
                                                     'discriminator': disc_user.discriminator,
                                                     'bot': disc_user.bot, 
                                                     'twitch_display_name': usr}
         
-        self.twolf.streamer_factory(usr, disc_user.name, str(self.twolf.streamer_list[disc_user.name]))
+        self.tState.streamer_factory(usr, disc_user.name, str(self.tState.streamer_list[disc_user.name]))
         print(f'SUCCESS: {ctx.author} registered {usr} as a streamer on Twitch!!')
         
-        pprint(self.twolf.streamer_list)                                                    
+        pprint(self.tState.streamer_list)                                                    
         await ctx.send(f'**`SUCCESS:`** {ctx.author} is registered as **`{usr}`** on Twitch!!')
         
         
@@ -237,7 +275,7 @@ class WolfCog(commands.Cog):
 
         print(f'{user.name}-{user.id} was banned from {guild.name}-{guild.id}')
 
-# The setup fucntion below is neccesarry. Remember we give bot.add_cog() the name of the class in this case WolfCog.
+# The setup fucntion below is neccesarry. Remember we give bot.add_cog() the name of the class in this case MemberCog.
 # When we load the cog, we use the name of the file.
 def setup(bot):
-    bot.add_cog(WolfCog(bot))
+    bot.add_cog(MemberCog(bot))
