@@ -1,5 +1,8 @@
 import discord
+from discord import Emoji
 from discord.ext import commands
+from pprint import pprint
+
 
 description = """Stuff goes here"""
 
@@ -8,8 +11,7 @@ class OwnerCog(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-
-
+        
     @commands.command(name='loaded?', hidden=True)
     async def ext_loaded(self, ctx):
         """Returns a list of loaded cogs.
@@ -22,10 +24,8 @@ class OwnerCog(commands.Cog):
             await ctx.send(f'**`ERROR:`** {type(e).__name__} - {e}')
         else:
             await ctx.send(f'''**`The following cogs are loaded: 
-                {loaded_cogs}`**''')
+                {loaded_cogs}`**''')        
 
-    # Hidden means it won't show up on the default help.        
-    
     # Hidden means it won't show up on the default help.
     @commands.command(name='load', hidden=True)
 #   @commands.is_owner()
@@ -36,6 +36,7 @@ class OwnerCog(commands.Cog):
         try:
             self.bot.load_extension(cog)
             ctx.send('success: Loaded ' + cog)
+        
         except Exception as e:
             await ctx.send(f'**`ERROR:`** {type(e).__name__} - {e}')
         else:
@@ -49,7 +50,7 @@ class OwnerCog(commands.Cog):
         Remember to use dot path. e.g: cogs.owner"""
 
         try:
-            await self.bot.unload_extension(cog)
+            self.bot.unload_extension(cog)
         except Exception as e:
             await ctx.send(f'**`ERROR:`** {type(e).__name__} - {e}')
         else:
@@ -65,10 +66,20 @@ class OwnerCog(commands.Cog):
             print("loaded " + cog)
             self.bot.unload_extension(cog)
             self.bot.load_extension(cog)
+        
         except Exception as e:
             await ctx.send(f'**`ERROR:`** {type(e).__name__} - {e}')
+        
         else:
             await ctx.send('**`SUCCESS`**')
+    
+    @commands.command(pass_context=True)
+    async def debug(ctx, emoji: Emoji):
+        
+        embed = discord.Embed(description=f"emoji: {emoji}", title=f"emojis: {emoji}")
+        embed.add_field(name="id", value=repr(emoji.id))
+        embed.add_field(name="name", value=repr(emoji.name))
+        await ctx.send(embed=embed)
 
 
 def setup(bot):
