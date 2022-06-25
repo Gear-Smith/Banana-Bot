@@ -24,7 +24,7 @@ description = '''
     This bot will assist mods in channel management and will be updated as the need arrises for more funcionality.
     
     This bot uses the following libraries:
-        Python v3.9.1 : Discord.py v1.7.3 : TwitchAPI v2.5.3
+        Python v3.10.5 : Discord.py v1.7.3 : TwitchAPI v2.5.5
     
     For examples on cogs for the async version:
         https://gist.github.com/leovoel/46cd89ed6a8f41fd09c5
