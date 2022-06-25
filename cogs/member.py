@@ -1,7 +1,7 @@
 import ast
 from asyncio import exceptions, tasks
 from logging import exception
-from pickle import TRUE
+from pickle import FALSE, TRUE
 from tabnanny import check
 from tkinter import HIDDEN
 from aiohttp import streamer
@@ -11,6 +11,7 @@ from discord.ext import commands, tasks
 import twitchAPI
 from twitchAPI.twitch import Twitch
 from pprint import pprint
+import datetime
 
 from utilities import configs
 
@@ -32,9 +33,8 @@ class TwitchState():
         }
         self.LIVE = True
         self.OFFLINE = False
-        self.LIVE_CHANNEL_ID = [YOUR DISCORD LIVE CHANNEL ID]
-        #int(self.cfg.get_live_channel_id())
-        
+        self.LIVE_CHANNEL_ID = self.cfg.get_live_channel_id()
+
         self.streamer_list =  self.cfg.get_streamer_list()
                 
     
@@ -68,15 +68,21 @@ class TwitchState():
         return self.HEADERS
 
 
-    def is_user_live(self, username):        
+    def is_user_live(self, username, returnData=False):        
         endpoint = 'https://api.twitch.tv/helix/streams'
         #endpoint = 'http://localhost:17563'        
         my_params = {'user_login': username}
 
         response = requests.get(endpoint, headers=self.get_headers(), params=my_params)
+    
         data = response.json()['data'] 
+        #pprint(data)
         if len(data) == 0:
             return False
+        
+        if returnData:
+            return data
+
         return data[0]['type'] == 'live'
 
 
@@ -87,7 +93,8 @@ class MemberCog(commands.Cog):
         self.bot = bot
         self.tState = TwitchState()
         self.delete_offline_streamers.start()
-        self.LIVE_CHANNEL_ID = [YOUR DISCORD LIVE CHANNEL ID]
+        self.LIVE_CHANNEL_ID = self.tState.LIVE_CHANNEL_ID
+        
 
     @commands.command(name='showlist', hidden=True)
     async def show_list(self, ctx):
@@ -114,10 +121,10 @@ class MemberCog(commands.Cog):
     @tasks.loop(seconds=1800, reconnect=True)
     async def delete_offline_streamers(self):
         
-        Live_channel = self.bot.get_channel(self.tState.get_live_channel_id())
+        Live_channel = self.bot.get_channel(int(self.LIVE_CHANNEL_ID))
 
         messages = await Live_channel.history(limit=200).flatten()
-                        
+                                
         for usr in self.tState.streamer_list:
             display_name = self.tState.streamer_list[usr]['twitch_display_name']
             print(f'Checking status for {display_name}')                                                
@@ -129,7 +136,8 @@ class MemberCog(commands.Cog):
                 for m in messages:
 
                     def is_streamer(m):
-                        if m.content == f'https://twitch.tv/{display_name}':
+                        #if m.content == f'{display_name}':
+                        if display_name in m.content:
                             print(f'Deleting message for {usr}')
                             return True
                         else: return False
@@ -152,16 +160,18 @@ class MemberCog(commands.Cog):
 
     @commands.command(pass_context=TRUE, name='live', hidden= False, aliases= ['golive', 'streaming'])
     async def post_going_live(self, ctx):
-        """Bot will post your `twitch link` to the `going-live` channel."""
-
-        Live_channel = self.bot.get_channel(self.tState.get_live_channel_id())
-        if ctx.author.name in self.tState.streamer_list.keys():
+        """Bot will post your `twitch link` to the `going-live` channel. Twitch needs a few moments to publish you as live before this works. """
+        discord_user = ctx.author.name.lower()
+        Live_channel = self.bot.get_channel(int(self.LIVE_CHANNEL_ID))
+        if discord_user in self.tState.streamer_list.keys():
     
-            display_name = self.tState.streamer_list[ctx.author.name]['twitch_display_name']
+            display_name = self.tState.streamer_list[discord_user]['twitch_display_name']
             live_state = await self.islive(ctx, display_name)
     
             if live_state:
-                await Live_channel.send(f'https://twitch.tv/{display_name}')
+                await self.show_streamer_card(ctx, twitch_name=display_name)
+                #await Live_channel.send(f'https://twitch.tv/{display_name}')
+        else: print('Something went wrong...')
 
 
     @commands.command(pass_context=True, name='islive', hidden=False)
@@ -201,68 +211,58 @@ class MemberCog(commands.Cog):
         self.tState.streamer_factory(usr, disc_user.name, str(self.tState.streamer_list[disc_user.name]))
         print(f'SUCCESS: {ctx.author} registered {usr} as a streamer on Twitch!!')
         
-        pprint(self.tState.streamer_list)                                                    
+        #pprint(self.tState.streamer_list)                                                    
+
         await ctx.send(f'**`SUCCESS:`** {ctx.author} is registered as **`{usr}`** on Twitch!!')
         
         
 
     @commands.command(pass_context=True, name='streamcard')
  #  @commands.guild_only()
-    async def show_streamer_card(self, ctx):
+    async def show_streamer_card(self, ctx,*, twitch_name: str, data=None):
         """Incomplete and needs to be changed to the correct format."""
+        
+        """ 
+        TODO:   -Clean this up with functions for readability
+                -Add control flow
+                -Add use of Eojis
+                -Preserve ability to call this command from chat and !live command
+        """
 
+        width = 1920
+        height = 1080
+        
+        #emoji_ph = ctx.guild.emojis
+        #pprint(emoji_ph)
+        
 
+        if data == None:
+            data = self.tState.is_user_live(twitch_name, returnData=True)
 
-        embed = {
-            "embed": {
-                "title": "STREAM TITLE",
-                "description": "STREAMER ABOUT ME",
-                "url": "https://discordapp.com",
-                "color": 16711684,
-                "timestamp": "2022-03-26T16:01:15.546Z",
-                "footer": {
-                    "icon_url": "URL TO ISS PROFILE IMAGE",
-                    "text": "International Stream Station"
-                },
-                "thumbnail": {
-                    "url": "https://cdn.discordapp.com/embed/avatars/0.png"
-                },
-                "image": {
-                    "url": "https://cdn.discordapp.com/embed/avatars/0.png"
-                },
-                "author": {
-                    "name": "STREAMER DISPLAY NAME",
-                    "url": "STREAMER URL",
-                    "icon_url": "https://cdn.discordapp.com/embed/avatars/0.png"
-                },
-                "fields": [
-                    {
-                        "name": "Streamer Status",
-                        "value": "Affiliate, partner, non-affiliate... etc"
-                    },
-                    {
-                        "name": "Twitch ",
-                        "value": "Twitch Bio"
-                    },
-                    {
-                        "name": "🙄",
-                        "value": "change this section to streamer stats."
-                    },
-                    {
-                        "name": "<:thonkang:219069250692841473>",
-                        "value": "these last two",
-                        "inline": True
-                    },
-                    {
-                        "name": "<:thonkang:219069250692841473>",
-                        "value": "are inline fields",
-                        "inline": True
-                    }
-                ]
-            }
-        }
+        thumbnail = data[0]['thumbnail_url']
+        thumbnail = thumbnail.replace("{" + "width" + "}" , str(width))
+        thumbnail = thumbnail.replace("{" + "height" + "}", str(height))
+        
+        #emoji_phnix = ctx.guild.emoji['Phnix']        
 
-        await ctx.send(content='**A simple Embed for discord.py@v1.7.3 in cogs.**', embed=embed)
+        embed = discord.Embed(title = f"!!! LIVE !!!", url= f"https://twitch.tv/{data[0]['user_name']}", description= f"Im going live with some {data[0]['game_name']}, come join me!!", color=0xff0000)
+        embed.set_author(name= data[0]['user_name'], 
+                         url= f"https://twitch.tv/{data[0]['user_name']}", 
+                         icon_url= thumbnail)
+        
+        embed.set_thumbnail(url=thumbnail)
+                
+        embed.set_image(url=thumbnail)
+                
+        embed.add_field(name="Streamer Status", value=str("Affiliate, parter, etc."))
+        embed.add_field(name= "Twitch Bio ", value= "Im a streamer who does cool things because they are cool to do, and stuff...", inline= False)
+        embed.add_field(name= "Viewer Count", value= data[0]['viewer_count'], inline= True)
+        embed.add_field(name= "Audience", value=  "18+" if data[0]['is_mature'] else "Everyone", inline= True)
+        
+        embed.set_footer(text=ctx.guild.name, icon_url= ctx.guild.icon_url)    
+
+        await ctx.send(content=f'**`{data[0]["user_name"]} is live:` {data[0]["title"]}**', embed=embed)
+
 
     async def on_member_ban(self, guild, user):
         """Event Listener which is called when a user is banned from the guild.
