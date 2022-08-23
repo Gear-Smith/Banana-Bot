@@ -1,5 +1,5 @@
 import ast
-from asyncio import exceptions, tasks
+from asyncio import exceptions, get_event_loop_policy, tasks
 from logging import exception
 from pickle import FALSE, TRUE
 from tabnanny import check
@@ -11,10 +11,22 @@ from discord.ext import commands, tasks
 import twitchAPI
 from twitchAPI.twitch import Twitch
 from pprint import pprint
-import datetime
+from datetime import datetime
+from colorama import Fore
+from colorama import Style
 
 from utilities import configs
 
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
 
 class TwitchState():
     """API documentation https://dev.twitch.tv/docs/api/reference#get-streams """
@@ -70,6 +82,7 @@ class TwitchState():
 
     def is_user_live(self, username, returnData=False):        
         endpoint = 'https://api.twitch.tv/helix/streams'
+        #endpoint = f'https://api.twitch.tv/helix/users?login={username}'
         #endpoint = 'http://localhost:17563'        
         my_params = {'user_login': username}
 
@@ -110,11 +123,14 @@ class MemberCog(commands.Cog):
     async def is_registered(self, ctx):
         """Checks to see streamer is registered with the bot."""
         
-        if ctx.author.name in self.tState.streamer_list:
-            await ctx.send(f'{ctx.author} is registered as `{self.tState.streamer_list[ctx.author.name]["twitch_display_name"]}`')
+
+
+        if ctx.author.name == self.tState.streamer_list[ctx.author.name.lower()]["name"]:
+            await ctx.send(f'{ctx.author} is registered as `{self.tState.streamer_list[ctx.author.name.lower()]["twitch_display_name"]}`')
             return True
         else: 
             await ctx.send(f'Registration unknown or missing')
+            #print(f'The data provided was: {ctx.author.name} and the data retrieved was {self.tState.streamer_list[ctx.author.name.lower()]["name"]}')
             return False   
 
 
@@ -122,15 +138,16 @@ class MemberCog(commands.Cog):
     async def delete_offline_streamers(self):
         
         Live_channel = self.bot.get_channel(int(self.LIVE_CHANNEL_ID))
-
+        p_timestamp = datetime.now().strftime("%H:%M:%S")
         messages = await Live_channel.history(limit=200).flatten()
                                 
         for usr in self.tState.streamer_list:
             display_name = self.tState.streamer_list[usr]['twitch_display_name']
-            print(f'Checking status for {display_name}')                                                
+            p_timestamp = datetime.now().strftime("%H:%M:%S")
+            print(f"{Fore.GREEN}[{p_timestamp}]{Style.RESET_ALL}  Checking status for {display_name}")                                                
             
             if self.tState.is_user_live(display_name):
-                print(f'{display_name} is still live.')
+                print(f'{Fore.CYAN}[{p_timestamp}]{Style.RESET_ALL}  {display_name} is still live.')
                 
             elif not self.tState.is_user_live(display_name):    
                 for m in messages:
@@ -138,13 +155,13 @@ class MemberCog(commands.Cog):
                     def is_streamer(m):
                         #if m.content == f'{display_name}':
                         if display_name in m.content:
-                            print(f'Deleting message for {usr}')
+                            print(f'{Fore.LIGHTYELLOW_EX}[{p_timestamp}]{Style.RESET_ALL}  Deleting bot message for {usr}')
                             return True
                         else: return False
                 
                     def is_user(m):
                         if m.author.id == self.tState.streamer_list[usr]['id']:
-                            print(f'Deleting message for {usr}')
+                            print(f'{Fore.LIGHTYELLOW_EX}[{p_timestamp}]{Style.RESET_ALL}  Deleting message for {usr}')
                             return True
                         else: return False
                     
@@ -171,25 +188,28 @@ class MemberCog(commands.Cog):
             if live_state:
                 await self.show_streamer_card(ctx, twitch_name=display_name)
                 #await Live_channel.send(f'https://twitch.tv/{display_name}')
-        else: print('Something went wrong...')
+        else: 
+            ctx.send('You must first register with `!register [YOUR TWITCH USERNAME]` to use this command.')
+            
 
 
     @commands.command(pass_context=True, name='islive', hidden=False)
     async def islive(self, ctx, user):
         """Check to see if a Twitch user is live."""
         
+        p_timestamp = datetime.now().strftime("%H:%M:%S")
+
         print(f'Checking if {user} is live....')
         
         try:
             result = self.tState.is_user_live(user)
             if result: 
-                await ctx.send(f'**`{user} is live!!`**')
-                pprint(f'{user} is Live!!!')
+                print(f'{Fore.LIGHTRED_EX}[{p_timestamp}]{Style.RESET_ALL}  {user} just went Live!!!')
                 return True
 
             else: 
                 await ctx.send(f'**`{user} is Offline`**')
-                pprint(f'{user} is offline.')
+                print(f'{Fore.LIGHTYELLOW_EX}[{p_timestamp}]{Style.RESET_ALL}  {user} is offline.')
                 return False
                         
         except Exception as e:
@@ -239,23 +259,43 @@ class MemberCog(commands.Cog):
         if data == None:
             data = self.tState.is_user_live(twitch_name, returnData=True)
 
+        #endpoint = 'https://api.twitch.tv/helix/streams'
+        endpoint = f'https://api.twitch.tv/helix/users?login={twitch_name}'
+        #endpoint = 'http://localhost:17563'        
+        my_params = {'user_login': twitch_name}
+
+        profile_data = requests.get(endpoint, headers=self.tState.get_headers(), params=my_params)
+    
+        p_data = profile_data.json()['data']
+
         thumbnail = data[0]['thumbnail_url']
         thumbnail = thumbnail.replace("{" + "width" + "}" , str(width))
         thumbnail = thumbnail.replace("{" + "height" + "}", str(height))
-        
+        #pprint(p_data)
+        #pprint(data)
+
+             
         #emoji_phnix = ctx.guild.emoji['Phnix']        
 
         embed = discord.Embed(title = f"!!! LIVE !!!", url= f"https://twitch.tv/{data[0]['user_name']}", description= f"Im going live with some {data[0]['game_name']}, come join me!!", color=0xff0000)
         embed.set_author(name= data[0]['user_name'], 
                          url= f"https://twitch.tv/{data[0]['user_name']}", 
-                         icon_url= thumbnail)
+                         icon_url= p_data[0]['profile_image_url'])
         
-        embed.set_thumbnail(url=thumbnail)
+        embed.set_thumbnail(url="https://images.rawpixel.com/image_1300/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvam9iNjg2LTA3MC14LmpwZw.jpg")
                 
         embed.set_image(url=thumbnail)
-                
-        embed.add_field(name="Streamer Status", value=str("Affiliate, parter, etc."))
-        embed.add_field(name= "Twitch Bio ", value= "Im a streamer who does cool things because they are cool to do, and stuff...", inline= False)
+        
+
+
+        if p_data[0]['broadcaster_type'] == '': 
+            embed.add_field(name= "Streamer Status", value="Grinding for Affiliate")
+        else: embed.add_field(name= "Streamer Status", value=str(p_data[0]['broadcaster_type']))
+        
+        if p_data[0]['description'] == '':
+            embed.add_field(name= "Twitch Bio ", value= "No Bio...", inline= False)
+        else: embed.add_field(name= "Twitch Bio ", value= p_data[0]['description'], inline= False)
+        
         embed.add_field(name= "Viewer Count", value= data[0]['viewer_count'], inline= True)
         embed.add_field(name= "Audience", value=  "18+" if data[0]['is_mature'] else "Everyone", inline= True)
         
