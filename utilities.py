@@ -13,7 +13,8 @@ class configs():
         self.bot_token = Config.get('Discord', 'DISCORD_BOT_TOKEN')
         self.client_id = Config.get('Twitch', 'CLIENT_ID')
         self.client_secret = Config.get('Twitch', 'CLIENT_SECRET')
-        self.discord_live_channel_id = Config.get('Discord', 'discord_live_channel_id')
+        self.discord_live_channel_id = Config.get('Discord', 'DISCORD_LIVE_CHANNEL_ID')
+
 
     def setProperty(self, option, value, discord_name):
         
